@@ -1,0 +1,187 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Page</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script data-goatcounter="https://9023.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body class="bg-black font-sans text-white">
+    <nav class="bg-black text-white p-4 fixed w-full top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Creator Platform</h1>
+            <div class="flex items-center space-x-4">
+                <a href="index.html" class="text-white text-2xl"><i class="fas fa-home"></i></a>
+                <button id="hamburger" class="text-white md:hidden">
+                    <i class="fas fa-bars text-2xl"></i>
+                </button>
+            </div>
+            <ul id="nav-menu" class="hidden md:flex md:space-x-6">
+                <li><a href="index.html" class="hover:text-blue-400">Home</a></li>
+                <li><a href="index.html#categories" class="hover:text-blue-400">Categories</a></li>
+                <li><a href="index.html#hashtags" class="hover:text-blue-400">Hashtags</a></li>
+                <li><a href="privacy.html" class="hover:text-blue-400">Privacy Policy</a></li>
+                <li><a href="terms.html" class="hover:text-blue-400">Terms & Conditions</a></li>
+            </ul>
+        </div>
+        <ul id="mobile-menu" class="hidden bg-gray-800 text-white p-4">
+            <li><a href="index.html" class="block py-2 hover:text-blue-400">Home</a></li>
+            <li><a href="index.html#categories" class="block py-2 hover:text-blue-400">Categories</a></li>
+            <li><a href="index.html#hashtags" class="block py-2 hover:text-blue-400">Hashtags</a></li>
+            <li><a href="privacy.html" class="block py-2 hover:text-blue-400">Privacy Policy</a></li>
+            <li><a href="terms.html" class="block py-2 hover:text-blue-400">Terms & Conditions</a></li>
+        </ul>
+    </nav>
+
+    <section class="pt-20 pb-10">
+        <div class="container mx-auto px-4">
+            <div id="video-content" class="bg-gray-900 rounded-lg shadow-md p-6">
+                <h2 id="video-title" class="text-2xl font-bold mb-2"></h2>
+                <video id="player" controls src="" class="w-full h-auto mb-6 aspect-video rounded"></video>
+                <div class="mb-4">
+                    <p><strong>Views:</strong> <span id="video-views"></span></p>
+                    <p><strong>Categories:</strong> <span id="video-categories"></span></p>
+                    <p><strong>Hashtags:</strong> <span id="video-hashtags"></span></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-10">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl font-bold mb-6">Related Videos</h2>
+            <div id="related-videos" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            <div class="flex justify-center mt-6">
+                <button id="show-more" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Show More</button>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-black text-white py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p>© 2025 Creator Platform. All rights reserved.</p>
+            <div class="mt-2">
+                <a href="privacy.html" class="hover:text-blue-400 mx-2">Privacy Policy</a>
+                <a href="terms.html" class="hover:text-blue-400 mx-2">Terms & Conditions</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="videos.js"></script>
+    <script>
+        // Toggle mobile menu
+        document.getElementById('hamburger').addEventListener('click', () => {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
+
+        // Get video ID from URL and map to array index
+        const params = new URLSearchParams(window.location.search);
+        const videoId = parseInt(params.get('id'));
+        let videoIndex;
+        if (videoId >= 0) {
+            videoIndex = videoId; // Positive ID maps directly to index
+        } else {
+            videoIndex = -videoId - 1; // Negative ID maps to index (e.g., -1 → 0, -2 → 1)
+        }
+        const video = videos[videoIndex];
+
+        // Display video details
+        if (video) {
+            document.getElementById('video-title').textContent = video.title;
+            document.getElementById('player').src = video.url;
+            document.getElementById('video-views').textContent = video.views;
+            document.getElementById('video-categories').innerHTML = video.categories
+                .map(cat => `<a href="index.html?category=${cat}" class="text-blue-400 hover:text-blue-600">${cat}</a>`)
+                .join(', ');
+            document.getElementById('video-hashtags').innerHTML = video.hashtags
+                .map(tag => `<a href="index.html?hashtag=${tag}" class="text-blue-400 hover:text-blue-600">#${tag}</a>`)
+                .join(', ');
+        }
+
+        // Display related videos
+        const relatedVideos = videos
+            .filter((v, idx) => idx !== videoIndex && (
+                v.categories.some(cat => video.categories.includes(cat)) ||
+                v.hashtags.some(tag => video.hashtags.includes(tag))
+            ))
+            .slice(0, 6);
+
+        const relatedVideosContainer = document.getElementById('related-videos');
+        relatedVideos.forEach(relatedVideo => {
+            const relatedIndex = videos.indexOf(relatedVideo);
+            const relatedVideoId = relatedIndex < 10 ? relatedIndex : relatedIndex >= 10 ? relatedIndex : -(relatedIndex - 9);
+            const videoElement = document.createElement('div');
+            videoElement.className = 'relative bg-gray-900 rounded-lg shadow-md overflow-hidden';
+            videoElement.innerHTML = `
+                <a href="video.html?id=${relatedVideoId}">
+                    <img src="${relatedVideo.thumbnail}" alt="${relatedVideo.title}" class="w-full h-48 object-cover">
+                    <div class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-sm px-2 py-1 rounded">${relatedVideo.views}</div>
+                    <div class="p-4">
+                        <h3 class="text-lg font-semibold text-white">${relatedVideo.title}</h3>
+                    </div>
+                </a>
+            `;
+            relatedVideosContainer.appendChild(videoElement);
+        });
+
+        // "Show More" button redirects to referrer or homepage
+        document.getElementById('show-more').addEventListener('click', () => {
+            const referrer = document.referrer;
+            let redirectUrl = 'index.html';
+            if (referrer) {
+                const url = new URL(referrer);
+                const params = url.searchParams;
+                const category = params.get('category');
+                const hashtag = params.get('hashtag');
+                if (category) {
+                    redirectUrl = `index.html?category=${encodeURIComponent(category)}`;
+                } else if (hashtag) {
+                    redirectUrl = `index.html?hashtag=${encodeURIComponent(hashtag)}`;
+                }
+            }
+            window.location.href = redirectUrl;
+        });
+    </script>
+</body>
+</html>
